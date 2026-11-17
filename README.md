@@ -1,60 +1,82 @@
 # Engage Terrain Conditions
 
-Skyline plugin for Fire Emblem Engage 2.0.0.
+Skyline plugin for Fire Emblem Engage 2.0.0 / Cobalt.
 
-Adds the experimental `OverlayActive` command for `Skill.xml` conditions. It returns 1 when a unit stands on a map overlay, and 0 otherwise. Base-map terrain is excluded.
+Adds the `OverlayActive` command for `Skill.xml` conditions. It returns `1` when a unit stands on a `MapOverlap` (such as a Dragon Vein) and `0` otherwise. Natural terrain (forest, fort, etc.) is excluded.
 
-XML condition: `OverlayActive > 0`
+XML condition: `OverlayActive > 0` (stored as `OverlayActive &gt; 0` inside an XML attribute).
 
-## Build and deploy
+## Current status (17 November 2026)
 
-From WSL, with Rust and cargo-skyline installed:
+**Validated in-game by the mod author, in the tested scenarios:**
+
+- NRO build/deployment, Cobalt startup and `OverlayActive` command registration.
+- Dynamic Crit +10 on an overlay, including the appearance/disappearance of a Dragon Vein under a unit that has not moved.
+- End-of-action Groundswell healing on an overlay, and no corresponding heal on a normal tile.
+- Combined healing + critical bonus without removing the overlay.
+- Groundswell icon in real combat.
+- No reported crash during the tested tactical-map scenario, world map, emblem equip/unequip menus, or Somniel arena, after the map-dimension guard was deployed.
+
+These results do **not** prove exhaustive safety for every map, scene or simulated battle position. Fixed offsets and native signatures target **Engage 2.0.0**, not other game versions.
+
+## Build and deploy the plugin
+
+From the plugin repository in WSL, with Rust and cargo-skyline installed:
 
 ```sh
 bash scripts/deploy.sh
 ```
 
-Stop the game before running the script. It builds the NRO, copies it to Ryujinx's `sdcard/engage/mods/Terrain_Conditions/` folder and keeps the first existing NRO as `.bak`. The Ryujinx location is detected from Windows `%APPDATA%`.
+**Close the game before deployment.** The script builds `libterrain_conditions.nro` and copies it into an **existing** `sdcard/engage/mods/Terrain_Conditions/` folder under Ryujinx. It saves the original NRO as `.bak` if that backup does not yet exist. It does not create a missing mod directory.
 
-For a custom Ryujinx location, set `RYUJINX_DIR` to the directory containing `sdcard/`.
+The Ryujinx directory is inferred from Windows `%APPDATA%`. If Ryujinx is installed elsewhere, pass `RYUJINX_DIR` pointing to the directory containing `sdcard/`.
 
-## Groundswell tests
+## Permanent Groundswell XML (separate repository)
 
-With the game closed and the plugin deployed:
+The matching, version-controlled skill configuration is in [engage_modpack PR #1](https://github.com/Deklou/engage_modpack/pull/1), branch `feat/groundswell-overlay`:
+
+`Emblem_Rework/patches/xml/Skill.xml`
+
+It changes **only two `<Param>` lines**, leaving the rest of the modpack intact:
+
+- `SID_地脈吸収` (Groundswell): `Timing=26`, `Condition="OverlayActive &gt; 0"`, `HP +10`, no terrain removal, and `SyncSids="SID_Groundswell_Crit;"`.
+- `SID_Groundswell_Crit`: `Timing=3`, `Condition="OverlayActive &gt; 0"`, Crit +10, `Cycle=0`, `Life=0`.
+
+**Plugin and XML are both required.** Do not ship this XML alone: the `OverlayActive` term is provided by the NRO. Merging a PR or pulling GitHub changes does **not** automatically update Ryujinx's installed mod files.
+
+### Transition from temporary `combo` test to permanent XML
+
+1. **Close Engage in Ryujinx.** Keep a backup of the currently installed `Emblem_Rework/patches/xml/Skill.xml` (and the test-created `Skill.xml.groundswell.bak` if present).
+2. In GitHub Desktop, fetch/pull `engage_modpack` branch `feat/groundswell-overlay` after checking for local changes. Locate its versioned `Skill.xml`.
+3. Compare that complete versioned file with Ryujinx's installed `Skill.xml`. If they are **byte-for-byte identical**, the running `combo` configuration already equals the permanent XML; no extra XML replacement is needed. If they differ, **stop and review the diff**: there might be other local mod changes or line-ending differences. Never overwrite unrelated changes blindly.
+4. After merging the **plugin PR first**, then the **modpack PR**, pull each `main` in GitHub Desktop and repeat the versioned-versus-installed XML comparison. The plugin NRO must still be present.
+5. Perform one final launch/quick Groundswell check using the installed XML. Keep backups until the final validation; archive or remove the temporary test backup only after verifying the permanent installation.
+
+**Do not run `groundswell_test.py restore` as part of the final transition.** That command restores the *pre-test XML*, not the permanent version from GitHub.
+
+## Temporary diagnostic test modes (not the installation method)
+
+The reversible test script modifies the **installed** `Emblem_Rework` XML and saves the pre-test bytes as `Skill.xml.groundswell.bak`:
 
 ```sh
 python3 scripts/groundswell_test.py crit
-```
-
-`crit` applies a temporary +10 critical rate only on a map overlay. Its dynamic behavior was verified in-game, including when Corrin creates a Dragon Vein under a stationary unit.
-
-```sh
 python3 scripts/groundswell_test.py heal
-```
-
-`heal` sets `Timing=26`, `Condition="OverlayActive &gt; 0"`, `HP +10` and no `OverlapRange` or `OverlapTerrain`, disabling the crit bonus. End-of-action healing triggers on overlay and not off-overlay; verify the actual amount from HP before/after, and that the overlay persists.
-
-### Combined test (experimental)
-
-```sh
 python3 scripts/groundswell_test.py combo
 ```
 
-`combo` keeps Groundswell as the end-of-action healing skill while adding `SyncSids="SID_Groundswell_Crit;"` to synchronize a separate critical skill with `Timing=3`, `Condition="OverlayActive &gt; 0"`, `Cycle=0` and `Life=0`.
+- `crit`: isolated Crit +10 on an overlay, without healing.
+- `heal`: isolated Groundswell healing after an action, without Crit +10.
+- `combo`: dynamic Crit +10 and end-of-action healing together.
 
-This combination has **not** been validated in-game. On a fresh save/map with Camilla equipped:
-1. With the **same weapon**, compare critical rate on normal terrain and after Corrin creates a vein **before Rosado acts**. The bonus must be immediate and disappear when the vein expires.
-2. With Rosado missing at least 10 HP, finish an action on a vein. Verify exactly +10 HP, not just a healing animation, and verify the vein remains.
-3. End an action on normal terrain to confirm no extra heal.
-
-You can switch between `crit`, `heal`, `combo` without losing the saved original XML. Restore afterwards:
+Only for a **temporary diagnostic test**, and only if you explicitly intend to return to the saved pre-test version:
 
 ```sh
 python3 scripts/groundswell_test.py restore
 ```
 
-The original is saved once as `Skill.xml.groundswell.bak`; scripts refuse to overwrite a file with unexpected edits. No NRO rebuild is required for XML-only changes. Keep the game closed when switching modes.
+The test script refuses to overwrite unexpected installed XML changes. No NRO rebuild is necessary for XML-only changes. Keep the game closed when changing test modes.
 
-## Status
+## Related pull requests
 
-The fixed-offset `UnitCalculator.AddCommand` hook and `OverlayActive` registration work at startup. Dynamic critical rate and isolated healing have both been validated as activating only over an overlay. The combined XML behavior, healing amount, combat display and off-map safety still require tests.
+- [Terrain Conditions plugin PR #1](https://github.com/Deklou/Engage_Terrain_Conditions_Plugin/pull/1)
+- [Permanent Groundswell XML PR #1](https://github.com/Deklou/engage_modpack/pull/1)
