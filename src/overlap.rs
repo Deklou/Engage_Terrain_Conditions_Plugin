@@ -79,14 +79,24 @@ fn get_for_battle(
 }
 
 unsafe fn is_on_overlap(unit: *const Unit) -> bool {
-    if unit.is_null() || map_terrain(None).is_null() {
+    if unit.is_null() {
+        return false;
+    }
+
+    // MapSetting returns 0 when its MapTerrain is not available.
+    // Never query the MapOverlap singleton while outside a valid map.
+    let width = map_width(None);
+    let height = map_height(None);
+    if width <= 0 || height <= 0 {
         return false;
     }
 
     let x = unit_x(unit, None);
     let z = unit_z(unit, None);
 
-    if !(0..32).contains(&x) || !(0..32).contains(&z) {
+    // Engage 2.0.0 packs MapOverlap positions as x | (z << 5),
+    // so its grid is 32x32, even if the current map is smaller.
+    if x < 0 || z < 0 || x >= width.min(32) || z >= height.min(32) {
         return false;
     }
 
@@ -108,8 +118,11 @@ fn add_command(
     method: OptionalMethod,
 ) -> *mut CalculatorCommand;
 
-#[skyline::from_offset(0x01F42A60)]
-fn map_terrain(method: OptionalMethod) -> *const u8;
+#[skyline::from_offset(0x01F42B50)]
+fn map_width(method: OptionalMethod) -> i32;
+
+#[skyline::from_offset(0x01F42C10)]
+fn map_height(method: OptionalMethod) -> i32;
 
 #[skyline::from_offset(0x01A54C20)]
 fn unit_x(unit: *const Unit, method: OptionalMethod) -> i32;
