@@ -1,24 +1,21 @@
 # Engage Terrain Conditions
 
-Skyline plugin for Fire Emblem Engage 2.0.0. The goal is to make map-overlay conditions available to skill expressions.
+Skyline plugin for Fire Emblem Engage 2.0.0.
 
-## Scope
+Adds the `OverlayActive` command for `Skill.xml` conditions. It returns `1` if the unit is on a map overlay (Dragon Vein effects, flames, miasma, etc.), and `0` otherwise, including outside tactical maps. Base-map terrain is not counted.
 
-- Detect temporary terrain effects (`MapOverlap`), not base-map terrain.
-- Keep passive bonuses in sync with battle forecasts and actual combat.
-- Return a neutral value outside tactical maps.
-- Keep Groundswell's end-of-action healing separate from passive stat calculations.
-
-## Status
-
-Project skeleton only. No hooks, XML commands, or gameplay changes are implemented yet.
+Example condition: `OverlayActive > 0`
 
 ## Build
 
-Requires Rust and cargo-skyline in WSL.
+Requires WSL with Rust and cargo-skyline.
 
 ```sh
 cargo skyline build --release
 ```
 
-The expected output is `target/aarch64-skyline-switch/release/libterrain_conditions.nro`. Build and in-game loading still need to be verified. Commit `Cargo.lock` after the first successful build.
+Output: `target/aarch64-skyline-switch/release/libterrain_conditions.nro`. Install the NRO in its own Cobalt mod folder.
+
+## Status
+
+Command registration and overlap detection are experimental and still need an in-game test. Groundswell's critical bonus, end-of-action healing, and battle activation display are not changed by this plugin alone.

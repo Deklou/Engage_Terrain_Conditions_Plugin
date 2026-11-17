@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 skyline = "0.6.0"
+unity = { git = "https://github.com/DivineDragonFanClub/unity", rev = "1f1a9a759c2907609bdfd5de023d1257407efa0d", version = "0.3.0" }
 
 [profile.dev]
 panic = "abort"
