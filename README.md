@@ -18,24 +18,36 @@ Stop the game before running the script. It builds the NRO, copies it to Ryujinx
 
 For a custom Ryujinx location, set `RYUJINX_DIR` to the directory containing `sdcard/`.
 
-## Groundswell test
+## Groundswell tests
 
 With the game closed and the plugin deployed, run:
 
 ```sh
-python3 scripts/groundswell_test.py enable
+python3 scripts/groundswell_test.py crit
 ```
 
-This temporarily changes Groundswell in the installed `Emblem_Rework/patches/xml/Skill.xml` to grant Crit +10 only on a `MapOverlap` tile. Healing and terrain removal are disabled **during this test**. The original XML is backed up beside the modified file.
+This first test temporarily changes Groundswell in the installed `Emblem_Rework/patches/xml/Skill.xml` to give +10 critical rate only on a map overlay. The dynamic critical bonus was confirmed in-game with a Corrin Dragon Vein, without moving the unit.
 
-Compare combat forecasts with and without a map overlay, then restore the original:
+For the next test, switch directly from critical to healing (even if the first test is still active):
+
+```sh
+python3 scripts/groundswell_test.py heal
+```
+
+This sets `Timing=26`, `Condition="OverlayActive &gt; 0"`, `ActNames="HP;"`, `ActValues="10;"` and clears `OverlapRange` and `OverlapTerrain` so the skill should heal after the action without removing the overlay. The critical bonus is **temporarily disabled** to isolate healing.
+
+Test with a damaged unit on a non-healing Dragon Vein and a control without any overlay. Verify that healing happens after the unit acts/waits, **not** when the vein appears or on an ordinary tile, and that the overlay remains afterward. The result is not yet verified.
+
+Switch back to the critical test with `python3 scripts/groundswell_test.py crit` if needed.
+
+Restore the untouched original XML afterward:
 
 ```sh
 python3 scripts/groundswell_test.py restore
 ```
 
-No rebuild is required for XML-only changes. Keep the game closed when enabling or restoring the test.
+All modes use the same `Skill.xml.groundswell.bak` to preserve the original XML. The script refuses to overwrite an unrecognized change. No rebuild is required for XML-only changes. Keep the game closed when switching or restoring a test.
 
 ## Status
 
-The fixed-offset `UnitCalculator.AddCommand` hook and `OverlayActive` registration work at startup. The new XML condition still needs in-game validation, including combat forecasts and returning to a normal tile.
+The fixed-offset `UnitCalculator.AddCommand` hook and `OverlayActive` registration work at startup. The dynamic critical bonus was validated on-map. End-of-action healing, simultaneous critical/healing effects and combat display still require tests.
