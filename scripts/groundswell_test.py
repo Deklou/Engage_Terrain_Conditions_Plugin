@@ -7,29 +7,43 @@ import sys
 from pathlib import Path
 
 SKILL_ID = "SID_地脈吸収"
-CHANGES = {
+CRIT_ID = "SID_Groundswell_Crit"
+
+HEAL = {
+    "Timing": "26",
+    "Condition": "OverlayActive &gt; 0",
+    "ActNames": "HP;",
+    "ActOperations": "+;",
+    "ActValues": "10;",
+    "GiveTarget": "0",
+    "GiveSids": "",
+    "OverlapRange": "",
+    "OverlapTerrain": "",
+}
+MODES = {
     "crit": {
+        **HEAL,
         "Timing": "3",
-        "Condition": "OverlayActive &gt; 0",
         "ActNames": "必殺値;",
-        "ActOperations": "+;",
-        "ActValues": "10;",
-        "GiveTarget": "0",
-        "GiveSids": "",
-        "OverlapRange": "",
-        "OverlapTerrain": "",
     },
-    "heal": {
-        "Timing": "26",
-        "Condition": "OverlayActive &gt; 0",
-        "ActNames": "HP;",
-        "ActOperations": "+;",
-        "ActValues": "10;",
-        "GiveTarget": "0",
-        "GiveSids": "",
-        "OverlapRange": "",
-        "OverlapTerrain": "",
+    "heal": HEAL,
+    "combo": {
+        **HEAL,
+        # Synchronize a separate, always-present dynamic critical skill
+        # rather than granting it only after the end-of-action trigger.
+        "SyncSids": CRIT_ID + ";",
+        "SyncConditions": "",
     },
+}
+COMBO_CRIT = {
+    "Timing": "3",
+    "Condition": "OverlayActive &gt; 0",
+    "ActNames": "必殺値;",
+    "ActOperations": "+;",
+    "ActValues": "10;",
+    "Cycle": "0",
+    "Life": "0",
+    "Flag": "1",
 }
 
 
@@ -50,35 +64,44 @@ def skill_file() -> Path:
     return base / "sdcard/engage/mods/Emblem_Rework/patches/xml/Skill.xml"
 
 
-def modified(original: bytes, mode: str = "crit") -> bytes:
-    bom = b"\xef\xbb\xbf"
-    content = original.decode("utf-8-sig")
-    pattern = re.compile(r'^([ \t]*<Param\b[^\r\n]*\bSid="' + SKILL_ID + r'"[^\r\n]*/>)', re.M)
+def change_row(content: str, sid: str, changes: dict[str, str]) -> str:
+    pattern = re.compile(
+        r'^([ \t]*<Param\b[^\r\n]*\bSid="' + re.escape(sid) + r'"[^\r\n]*/>)',
+        re.M,
+    )
     matches = list(pattern.finditer(content))
     if len(matches) != 1:
-        raise ValueError(f"{SKILL_ID} : {len(matches)} ligne(s) trouvée(s), attendu 1")
+        raise ValueError(f"{sid} : {len(matches)} ligne(s) trouvée(s), attendu 1")
     line = matches[0].group(1)
-    for key, value in CHANGES[mode].items():
+    for key, value in changes.items():
         attr = re.compile(r'(?<![\w.])' + re.escape(key) + r'="[^"]*"')
         if len(attr.findall(line)) != 1:
             raise ValueError(f"Attribut XML introuvable ou ambigu : {key}")
         line = attr.sub(lambda m, k=key, v=value: f'{k}="{v}"', line, count=1)
-    result = content[:matches[0].start()] + line + content[matches[0].end():]
-    return (bom if original.startswith(bom) else b"") + result.encode("utf-8")
+    return content[:matches[0].start()] + line + content[matches[0].end():]
+
+
+def modified(original: bytes, mode: str = "crit") -> bytes:
+    bom = b"\xef\xbb\xbf"
+    content = original.decode("utf-8-sig")
+    content = change_row(content, SKILL_ID, MODES[mode])
+    if mode == "combo":
+        content = change_row(content, CRIT_ID, COMBO_CRIT)
+    return (bom if original.startswith(bom) else b"") + content.encode("utf-8")
 
 
 def known_mode(original: bytes, current: bytes) -> str | None:
     if current == original:
         return "original"
-    for mode in CHANGES:
+    for mode in MODES:
         if current == modified(original, mode):
             return mode
     return None
 
 
 def main() -> None:
-    if len(sys.argv) != 2 or sys.argv[1] not in {"enable", "crit", "heal", "restore"}:
-        sys.exit("Usage : python3 scripts/groundswell_test.py crit|heal|restore")
+    if len(sys.argv) != 2 or sys.argv[1] not in {"enable", "crit", "heal", "combo", "restore"}:
+        sys.exit("Usage : python3 scripts/groundswell_test.py crit|heal|combo|restore")
     requested = "crit" if sys.argv[1] == "enable" else sys.argv[1]
     path = skill_file()
     backup = path.with_name(path.name + ".groundswell.bak")
@@ -103,17 +126,21 @@ def main() -> None:
         if requested == "restore":
             sys.exit("Aucune sauvegarde du test trouvée. Aucun fichier modifié.")
         original = current
-        # Save first; the original is never overwritten by later test switches.
+
+    # Validate the entire patch before writing the initial backup or the XML.
+    patched = modified(original, requested)
+    if not backup.exists():
         with backup.open("xb") as f:
             f.write(original)
-
-    patched = modified(original, requested)
     path.write_bytes(patched)
+
     if requested == "crit":
         print("Test critique : +10 uniquement sur MapOverlap, sans soin.")
+    elif requested == "heal":
+        print("Test soin : +10 PV après l'action sur MapOverlap, sans critique.")
     else:
-        print("Test soin : +10 PV après l'action sur MapOverlap, sans supprimer le terrain.")
-        print("Pendant ce test, le bonus critique est désactivé.")
+        print("Test combiné expérimental : soin +10 après action et critique +10 dynamique.")
+        print("Vérifier l'apparition immédiate du critique AVANT toute action de l'unité.")
     print("Sauvegarde conservée :", backup)
 
 

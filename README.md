@@ -20,34 +20,41 @@ For a custom Ryujinx location, set `RYUJINX_DIR` to the directory containing `sd
 
 ## Groundswell tests
 
-With the game closed and the plugin deployed, run:
+With the game closed and the plugin deployed:
 
 ```sh
 python3 scripts/groundswell_test.py crit
 ```
 
-This first test temporarily changes Groundswell in the installed `Emblem_Rework/patches/xml/Skill.xml` to give +10 critical rate only on a map overlay. The dynamic critical bonus was confirmed in-game with a Corrin Dragon Vein, without moving the unit.
-
-For the next test, switch directly from critical to healing (even if the first test is still active):
+`crit` applies a temporary +10 critical rate only on a map overlay. Its dynamic behavior was verified in-game, including when Corrin creates a Dragon Vein under a stationary unit.
 
 ```sh
 python3 scripts/groundswell_test.py heal
 ```
 
-This sets `Timing=26`, `Condition="OverlayActive &gt; 0"`, `ActNames="HP;"`, `ActValues="10;"` and clears `OverlapRange` and `OverlapTerrain` so the skill should heal after the action without removing the overlay. The critical bonus is **temporarily disabled** to isolate healing.
+`heal` sets `Timing=26`, `Condition="OverlayActive &gt; 0"`, `HP +10` and no `OverlapRange` or `OverlapTerrain`, disabling the crit bonus. End-of-action healing triggers on overlay and not off-overlay; verify the actual amount from HP before/after, and that the overlay persists.
 
-Test with a damaged unit on a non-healing Dragon Vein and a control without any overlay. Verify that healing happens after the unit acts/waits, **not** when the vein appears or on an ordinary tile, and that the overlay remains afterward. The result is not yet verified.
+### Combined test (experimental)
 
-Switch back to the critical test with `python3 scripts/groundswell_test.py crit` if needed.
+```sh
+python3 scripts/groundswell_test.py combo
+```
 
-Restore the untouched original XML afterward:
+`combo` keeps Groundswell as the end-of-action healing skill while adding `SyncSids="SID_Groundswell_Crit;"` to synchronize a separate critical skill with `Timing=3`, `Condition="OverlayActive &gt; 0"`, `Cycle=0` and `Life=0`.
+
+This combination has **not** been validated in-game. On a fresh save/map with Camilla equipped:
+1. With the **same weapon**, compare critical rate on normal terrain and after Corrin creates a vein **before Rosado acts**. The bonus must be immediate and disappear when the vein expires.
+2. With Rosado missing at least 10 HP, finish an action on a vein. Verify exactly +10 HP, not just a healing animation, and verify the vein remains.
+3. End an action on normal terrain to confirm no extra heal.
+
+You can switch between `crit`, `heal`, `combo` without losing the saved original XML. Restore afterwards:
 
 ```sh
 python3 scripts/groundswell_test.py restore
 ```
 
-All modes use the same `Skill.xml.groundswell.bak` to preserve the original XML. The script refuses to overwrite an unrecognized change. No rebuild is required for XML-only changes. Keep the game closed when switching or restoring a test.
+The original is saved once as `Skill.xml.groundswell.bak`; scripts refuse to overwrite a file with unexpected edits. No NRO rebuild is required for XML-only changes. Keep the game closed when switching modes.
 
 ## Status
 
-The fixed-offset `UnitCalculator.AddCommand` hook and `OverlayActive` registration work at startup. The dynamic critical bonus was validated on-map. End-of-action healing, simultaneous critical/healing effects and combat display still require tests.
+The fixed-offset `UnitCalculator.AddCommand` hook and `OverlayActive` registration work at startup. Dynamic critical rate and isolated healing have both been validated as activating only over an overlay. The combined XML behavior, healing amount, combat display and off-map safety still require tests.
