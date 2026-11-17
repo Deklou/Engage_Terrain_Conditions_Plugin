@@ -1,17 +1,7 @@
 # Engage Terrain Conditions
 
-Adds the `OverlayActive` condition to Fire Emblem Engage 2.0.0. It returns `1` if a unit is on a map overlay (such as a Dragon Vein), otherwise `0`. Normal terrain is ignored.
+A Skyline plugin for Fire Emblem Engage 2.0.0.
 
-In `Skill.xml`:
+Adds `OverlayActive`, a condition that checks whether a unit is standing on a terrain overlay, such as a Dragon Vein, rather than normal terrain.
 
-```xml
-Condition="OverlayActive &gt; 0"
-```
-
-Build and install from WSL, with Ryujinx closed:
-
-```sh
-bash scripts/deploy.sh
-```
-
-Requires Cobalt and an existing `sdcard/engage/mods/Terrain_Conditions/` folder. Groundswell uses this condition in `engage_modpack`.
+Made with Rust and Skyline, using Ghidra to explore the game's code. Runs with Cobalt.
