@@ -6,15 +6,23 @@ The planned `OverlayActive` command will return `1` when a unit stands on a map 
 
 Intended XML condition: `OverlayActive > 0`
 
-## Build
+## Build and deploy
 
-Requires WSL with Rust and cargo-skyline.
+From WSL, with Rust and cargo-skyline installed:
+
+```sh
+bash scripts/deploy.sh
+```
+
+Stop the game before running the script. It builds the NRO, copies it to Ryujinx's `sdcard/engage/mods/Terrain_Conditions/` folder and keeps the first existing NRO as `.bak`. The Ryujinx location is detected from Windows `%APPDATA%`.
+
+For a custom Ryujinx location, set `RYUJINX_DIR` to the directory containing `sdcard/`.
+
+To build without deploying:
 
 ```sh
 cargo skyline build --release
 ```
-
-Output: `target/aarch64-skyline-switch/release/libterrain_conditions.nro`. Install it in its own Cobalt mod folder.
 
 ## Status
 
