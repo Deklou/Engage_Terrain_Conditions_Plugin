@@ -1,0 +1,21 @@
+[package]
+name = "terrain_conditions"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[package.metadata.skyline]
+titleid = "0100a6301214e000"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+skyline = "0.6.0"
+unity = { git = "https://github.com/DivineDragonFanClub/unity", rev = "2a421c00211d1fe5c91656be41fdfc06fce2a912", version = "0.4.0" }
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
