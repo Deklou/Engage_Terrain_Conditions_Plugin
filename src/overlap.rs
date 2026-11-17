@@ -37,13 +37,14 @@ pub fn register(manager: &mut CalculatorManager) -> bool {
         };
         name_method.method_ptr = command_name_impl as *mut u8;
 
-        let Some(unit_method) = class.get_virtual_method_mut("GetImpl") else {
+        // GetImpl(Unit) and GetImpl(BattleInfoSide), Engage 2.0.0.
+        let methods = class.get_vtable_mut();
+        let Some(unit_method) = methods.get_mut(30) else {
             return false;
         };
         unit_method.method_ptr = get_for_unit as *mut u8;
 
-        // BattleInfoSide overload, verified for Engage 2.0.0.
-        let Some(battle_method) = class.get_vtable_mut().get_mut(31) else {
+        let Some(battle_method) = methods.get_mut(31) else {
             return false;
         };
         battle_method.method_ptr = get_for_battle as *mut u8;
@@ -85,11 +86,12 @@ unsafe fn is_on_overlap(unit: *const Unit) -> bool {
     let x = unit_x(unit, None);
     let z = unit_z(unit, None);
 
-    // MapOverlap uses the game's fixed 32x32 tile grid.
     if !(0..32).contains(&x) || !(0..32).contains(&z) {
         return false;
     }
-    !overlap_terrain(x, z, None).is_null()
+
+    // MapOverlap.Get returns 0 for an empty tile.
+    overlap_get(x, z, None) != 0
 }
 
 #[skyline::from_offset(0x0298DAA0)]
@@ -115,8 +117,8 @@ fn unit_x(unit: *const Unit, method: OptionalMethod) -> i32;
 #[skyline::from_offset(0x01A54C30)]
 fn unit_z(unit: *const Unit, method: OptionalMethod) -> i32;
 
-#[skyline::from_offset(0x01DFDA90)]
-fn overlap_terrain(x: i32, z: i32, method: OptionalMethod) -> *const u8;
+#[skyline::from_offset(0x01DFD860)]
+fn overlap_get(x: i32, z: i32, method: OptionalMethod) -> i32;
 
 #[skyline::from_offset(0x01E8B250)]
 fn battle_side_unit(side: &BattleInfoSide, method: OptionalMethod) -> *const Unit;
