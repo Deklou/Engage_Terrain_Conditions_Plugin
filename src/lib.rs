@@ -1,5 +1,6 @@
 use unity::prelude::*;
 
+mod oligoludia_break;
 mod overlap;
 
 #[unity::class("App", "CalculatorManager")]
@@ -27,5 +28,6 @@ fn register_commands(manager: &mut CalculatorManager, method: OptionalMethod) {
 #[skyline::main(name = "terrain_conditions")]
 pub fn main() {
     skyline::install_hooks!(register_commands);
-    println!("[terrain_conditions] loaded");
+    oligoludia_break::install();
+    println!("[terrain_conditions] loaded; Oligoludia Break exception installed");
 }
